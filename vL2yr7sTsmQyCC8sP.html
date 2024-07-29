@@ -1,0 +1,695 @@
+<html><head><base href="https://bonziworld.org/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>BonziWORLD - Mac OS 10.7 Edition (Enhanced Mobile)</title>
+<style>
+@font-face {
+    font-family: 'Lucida Grande';
+    src: url('https://db.onlinewebfonts.com/t/3efa3c2d1658137bcf0caa7e6004fa7a.woff2') format('woff2');
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Lucida Grande', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    background: url('https://512pixels.net/downloads/macos-wallpapers/10-7.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+#login_screen, #desktop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#login_screen {
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+
+#login_form {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    width: 80%;
+    max-width: 300px;
+}
+
+#desktop {
+    display: none;
+}
+
+.mswindow {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    max-width: 90%;
+    max-height: 80%;
+}
+
+.mswindow-title {
+    background: linear-gradient(to bottom, #f0f0f0, #d8d8d8);
+    padding: 5px 10px;
+    border-bottom: 1px solid #b1b1b1;
+    cursor: move;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mswindow-content {
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.mswindow-close, .mswindow-minimize, .mswindow-maximize {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.mswindow-close {
+    background-color: #ff5f57;
+}
+
+.mswindow-minimize {
+    background-color: #ffbd2e;
+}
+
+.mswindow-maximize {
+    background-color: #28c940;
+}
+
+#chatbar {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    border: 1px solid #b1b1b1;
+    font-size: 16px;
+}
+
+#room_info {
+    position: fixed;
+    bottom: 60px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #b1b1b1;
+    font-size: 14px;
+}
+
+#chat_log_button {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 5px 10px;
+    background: linear-gradient(to bottom, #4ca6ff, #1e90ff);
+    color: white;
+    border: 1px solid #0080ff;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.speech-bubble {
+    position: absolute;
+    background-color: #ffffe7;
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 200px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 14px;
+}
+
+.speech-bubble:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-top-color: #ffffe7;
+    border-bottom: 0;
+    margin-left: -10px;
+    margin-bottom: -10px;
+}
+
+.agent {
+    position: absolute;
+    width: 100px;
+    height: 80px;
+    cursor: move;
+    transition: all 0.5s ease;
+}
+
+.agent.entering {
+    transform: scale(0.1);
+    opacity: 0;
+}
+
+.agent.entered {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.agent.leaving {
+    transform: scale(0.1) rotate(720deg);
+    opacity: 0;
+}
+
+.context-menu {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    border: 1px solid #b1b1b1;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 5px 0;
+    z-index: 1000;
+}
+
+.context-menu-item {
+    padding: 8px 20px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.context-menu-item:hover {
+    background-color: #e8e8e8;
+}
+
+#talkcard {
+    display: none;
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #b1b1b1;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 14px;
+    max-width: 80%;
+}
+
+#pollyes, #pollno {
+    width: 100%;
+    height: 30px;
+    background-color: #f0f0f0;
+    margin-bottom: 10px;
+    position: relative;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+#innerbar_yes, #innerbar_no {
+    height: 100%;
+    width: 0;
+    background-color: #4CAF50;
+    transition: width 0.5s ease-in-out;
+}
+
+#innerbar_no {
+    background-color: #F44336;
+}
+
+.polltx {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+}
+
+#votecount {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .agent {
+        width: 50px;
+        height: 40px;
+    }
+
+    .speech-bubble {
+        max-width: 150px;
+        font-size: 12px;
+    }
+
+    #chatbar {
+        width: 90%;
+    }
+
+    #room_info {
+        bottom: 70px;
+        font-size: 12px;
+    }
+
+    .mswindow {
+        width: 95%;
+    }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+</head>
+<body>
+<div id="login_screen">
+    <div id="login_form">
+        <h2>Welcome to BonziWORLD - Mac OS 10.7 Edition</h2>
+        <input type="text" id="login_nickname" placeholder="Nickname" required>
+        <input type="text" id="login_room" placeholder="Room ID" required>
+        <button onclick="login()">Login</button>
+    </div>
+</div>
+
+<div id="desktop">
+    <div id="agents_container"></div>
+    <input type="text" id="chatbar" placeholder="Type your message...">
+    <div id="room_info"></div>
+    <button id="chat_log_button" onclick="toggleChatLog()">Chat Log</button>
+    <div id="talkcard"></div>
+</div>
+
+<div id="context-menu" class="context-menu">
+    <div class="context-menu-item" onclick="directMessage()">Direct Message</div>
+    <div class="context-menu-item" onclick="replyToUser()">Reply</div>
+</div>
+
+<script>
+const socket = io('https://bonziworld.org/');
+let agents = {};
+let announcements = [];
+let level = 0;
+let self = {};
+let talktarget = null;
+let window.talkstate = 0;
+let poll = undefined;
+
+const agentImages = [
+    "https://web.archive.org/web/20240419014954if_/https://bonkey.world/img/bonzi/purple.png",
+    "https://web.archive.org/web/20240419014959if_/https://bonkey.world/img/bonzi/peedy.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/clippy.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/genie.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/merlin.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/Robby.png"
+];
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+function login() {
+    self = {
+        name: $("login_nickname").value,
+        room: $("login_room").value,
+        color: ""
+    };
+    socket.emit("login", self);
+}
+
+socket.on("login", logindata => {
+    $("login_screen").style.display = "none";
+    $("desktop").style.display = "block";
+    
+    Object.keys(logindata.users).forEach(userkey => {
+        let user = logindata.users[userkey];
+        createAgent(user);
+    });
+    
+    updateRoomInfo();
+});
+
+function createAgent(user) {
+    let x = Math.floor(Math.random() * (window.innerWidth - 100));
+    let y = Math.floor(Math.random() * (window.innerHeight - 80));
+    
+    let agentDiv = document.createElement('div');
+    agentDiv.id = `agent_${user.guid}`;
+    agentDiv.className = 'agent entering';
+    agentDiv.style.left = `${x}px`;
+    agentDiv.style.top = `${y}px`;
+    
+    let canvas = document.createElement('canvas');
+    canvas.width = 100;
+    canvas.height = 80;
+    agentDiv.appendChild(canvas);
+    
+    let nameTag = document.createElement('div');
+    nameTag.textContent = user.name;
+    nameTag.style.textAlign = 'center';
+    nameTag.style.fontSize = '12px';
+    agentDiv.appendChild(nameTag);
+    
+    $("agents_container").appendChild(agentDiv);
+    
+    let stage = new createjs.Stage(canvas);
+    let spriteSheet = new createjs.SpriteSheet({
+        images: [agentImages[Math.floor(Math.random() * agentImages.length)]],
+        frames: {width: 100, height: 80},
+        animations: {
+            idle: 0,
+            enter: [277, 302, "idle", 0.5],
+            leave: [16, 39, 40, 0.5],
+            shrug: [100, 110, "idle", 1]
+        }
+    });
+    
+    let sprite = new createjs.Sprite(spriteSheet, "enter");
+    stage.addChild(sprite);
+    createjs.Ticker.framerate = 30;
+    createjs.Ticker.addEventListener("tick", stage);
+    
+    agents[user.guid] = {
+        div: agentDiv,
+        sprite: sprite,
+        stage: stage,
+        talk: function(text) {
+            let bubble = document.createElement('div');
+            bubble.className = 'speech-bubble';
+            bubble.textContent = text;
+            this.div.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 3000);
+        }
+    };
+    
+    setTimeout(() => {
+        agentDiv.classList.remove('entering');
+        agentDiv.classList.add('entered');
+    }, 50);
+    
+    makeDraggable(agentDiv);
+    
+    agentDiv.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY, user);
+    });
+}
+
+function makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    element.onmousedown = dragMouseDown;
+    element.ontouchstart = dragTouchStart;
+
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+
+    function dragTouchStart(e) {
+        e = e || window.event;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        document.ontouchend = closeDragElement;
+        document.ontouchmove = elementDragTouch;
+    }
+
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+    }
+
+    function elementDragTouch(e) {
+        e = e || window.event;
+        pos1 = pos3 - e.touches[0].clientX;
+        pos2 = pos4 - e.touches[0].clientY;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+    }
+}
+
+function updateRoomInfo() {
+    $("room_info").textContent = `Room: ${self.room} | Users: ${Object.keys(agents).length}`;
+}
+
+function talk() {
+    let message = $("chatbar").value;
+    if (message.startsWith("/")) {
+        let [cmd, ...params] = message.slice(1).split(" ");
+        socket.emit("command", {command: cmd, param: params.join(" ")});
+    } else {
+        if (window.talkstate === 1) {
+            socket.emit("dm", {guid: talktarget, message: message});
+        } else if (window.talkstate === 2) {
+            socket.emit("reply", {guid: talktarget, message: message});
+        } else {
+            socket.emit("talk", message);
+        }
+    }
+    $("chatbar").value = "";
+    $("talkcard").style.display = "none";
+    window.talkstate = 0;
+}
+
+$("chatbar").addEventListener("keydown", e => {
+    if (e.key === "Enter") talk();
+});
+
+socket.on("talk", data => {
+    if (agents[data.guid]) {
+        agents[data.guid].talk(data.text);
+        speakText(data.text);
+    }
+});
+
+socket.on("join", user => {
+    createAgent(user);
+    updateRoomInfo();
+});
+
+socket.on("leave", guid => {
+    if (agents[guid]) {
+        let agent = agents[guid];
+        agent.sprite.gotoAndPlay("leave");
+        agent.div.classList.add('leaving');
+        setTimeout(() => {
+            agent.div.remove();
+            delete agents[guid];
+            updateRoomInfo();
+        }, 500);
+    }
+});
+
+socket.on("update", user => {
+    if (agents[user.guid]) {
+        agents[user.guid].div.querySelector('div').textContent = user.name;
+    }
+});
+
+socket.on("announce", data => {
+    let win = new msWindow(data.title, data.html);
+    announcements.push(win);
+    if (announcements.length > 3) {
+        announcements[0].close();
+        announcements.shift();
+    }
+});
+
+socket.on("update_self", info => {
+    level = info.level;
+    if (info.roomowner) $("room_owner").style.display = "block";
+});
+
+socket.on("kick", kicker => {
+    alert(`You have been kicked by ${kicker}`);
+    window.location.reload();
+});
+
+function msWindow(title, content, x = 100, y = 100, width = 300, height = 200) {
+    this.element = document.createElement('div');
+    this.element.className = 'mswindow';
+    this.element.style.left = x + 'px';
+    this.element.style.top = y + 'px';
+    this.element.style.width = width + 'px';
+    this.element.style.height = height + 'px';
+    
+    this.titleBar = document.createElement('div');
+    this.titleBar.className = 'mswindow-title';
+    
+    this.closeButton = document.createElement('span');
+    this.closeButton.className = 'mswindow-close';
+    this.closeButton.onclick = () => this.close();
+    
+    this.minimizeButton = document.createElement('span');
+    this.minimizeButton.className = 'mswindow-minimize';
+    
+    this.maximizeButton = document.createElement('span');
+    this.maximizeButton.className = 'mswindow-maximize';
+    
+    let titleText = document.createElement('span');
+    titleText.textContent = title;
+    
+    this.titleBar.appendChild(this.closeButton);
+    this.titleBar.appendChild(this.minimizeButton);
+    this.titleBar.appendChild(this.maximizeButton);
+    this.titleBar.appendChild(titleText);
+    
+    this.content = document.createElement('div');
+    this.content.className = 'mswindow-content';
+    this.content.innerHTML = content;
+    
+    this.element.appendChild(this.titleBar);
+    this.element.appendChild(this.content);
+    
+    document.body.appendChild(this.element);
+    makeDraggable(this.element);
+    
+    this.close = function() {
+        this.element.remove();
+    };
+}
+
+let chatLogWindow = null;
+
+function toggleChatLog() {
+    if (chatLogWindow) {
+        chatLogWindow.close();
+        chatLogWindow = null;
+    } else {
+        chatLogWindow = new msWindow('Chat Log', '<div id="chat_log"></div>', 10, 10, 300, 400);
+    }
+}
+
+function speakText(text) {
+    let url = `https://www.tetyys.com/SAPI4/SAPI4?text=${encodeURIComponent(text)}&voice=${encodeURIComponent("Sam")}&pitch=150&speed=100`;
+    let audio = new Audio(url);
+    audio.play();
+}
+
+function updateChatLog(message) {
+    if (chatLogWindow) {
+        let chatLog = chatLogWindow.content.querySelector('#chat_log');
+        chatLog.innerHTML += `<p>${message}</p>`;
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+}
+
+socket.on("talk", data => {
+    if (agents[data.guid]) {
+        agents[data.guid].talk(data.text);
+        speakText(data.text);
+        updateChatLog(`${agents[data.guid].div.querySelector('div').textContent}: ${data.text}`);
+    }
+});
+
+function showContextMenu(x, y, user) {
+    let contextMenu = $('context-menu');
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.display = 'block';
+    talktarget = user.guid;
+    
+    document.addEventListener('click', hideContextMenu);
+}
+
+function hideContextMenu() {
+    $('context-menu').style.display = 'none';
+    document.removeEventListener('click', hideContextMenu);
+}
+
+function directMessage() {
+    window.talkstate = 1;
+    $("talkcard").innerHTML = `Sending a private message to ${agents[talktarget].div.querySelector('div').textContent} <i class='fa fa-times' onclick='this.parentElement.style.display="none";window.talkstate=0;'></i>`;
+    $("talkcard").style.display = "inline-block";
+}
+
+function replyToUser() {
+    window.talkstate = 2;
+    $("talkcard").innerHTML = `Replying to ${agents[talktarget].div.querySelector('div').textContent} <i class='fa fa-times' onclick='this.parentElement.style.display="none";window.talkstate=0;'></i>`;
+    $("talkcard").style.display = "inline-block";
+}
+
+socket.on("poll", data => {
+    if (poll != undefined) {
+        poll.close();
+    }
+    poll = new msWindow("Poll from " + data.name, `
+        <h1>${data.title}</h1>
+        <div id="pollyes"><div id="innerbar_yes"></div><span class='polltx'>YES</span></div>
+        <div id="pollno"><div id="innerbar_no"></div><span class='polltx'>NO</span></div>
+        <span id="votecount">0</span> Votes!
+    `, undefined, undefined, window.innerWidth / 2);
+    $("pollyes").onclick = () => {
+        socket.emit('command', {
+            command: 'vote',
+            param: 'yes'
+        })
+    }
+    $("pollno").onclick = () => {
+        socket.emit('command', {
+            command: 'vote',
+            param: 'no'
+        })
+    }
+})
+
+socket.on("vote", data => {
+    if (poll == undefined) return;
+    let tvotes = data.yes + data.no;
+    $("innerbar_yes").style.width = data.yes / tvotes * 100 + "%";
+    $("innerbar_no").style.width = data.no / tvotes * 100 + "%";
+    $("votecount").innerHTML = tvotes;
+})
+
+// Adjust window size on resize
+window.addEventListener('resize', () => {
+    let agentContainer = $('agents_container');
+    let agents = agentContainer.getElementsByClassName('agent');
+    for (let agent of agents) {
+        let rect = agent.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            agent.style.left = (window.innerWidth - rect.width) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            agent.style.top = (window.innerHeight - rect.height) + 'px';
+        }
+    }
+});
+
+</script>
+</body></html>
