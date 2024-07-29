@@ -1,0 +1,456 @@
+<html><head><base href="https://bonziworld.org/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>BonziWORLD - Mac OS 10.7 Edition (Enhanced)</title>
+<style>
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    background: url('https://512pixels.net/downloads/macos-wallpapers/10-7.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+#login_screen, #desktop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#login_screen {
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+
+#login_form {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+#desktop {
+    display: none;
+}
+
+.mswindow {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.mswindow-title {
+    background-color: #f0f0f0;
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+    cursor: move;
+}
+
+.mswindow-content {
+    padding: 10px;
+}
+
+.mswindow-close {
+    float: right;
+    cursor: pointer;
+}
+
+#chatbar {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+}
+
+#room_info {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px;
+    border-radius: 5px;
+}
+
+#chat_log_button {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 5px 10px;
+    background-color: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.speech-bubble {
+    position: absolute;
+    background-color: #ffffe7;
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 200px;
+    z-index: 1000;
+}
+
+.speech-bubble:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-top-color: #ffffe7;
+    border-bottom: 0;
+    margin-left: -10px;
+    margin-bottom: -10px;
+}
+
+.agent {
+    position: absolute;
+    width: 200px;
+    height: 160px;
+    cursor: move;
+    transition: all 0.5s ease;
+}
+
+.agent.entering {
+    transform: scale(0.1);
+    opacity: 0;
+}
+
+.agent.entered {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.agent.leaving {
+    transform: scale(0.1) rotate(720deg);
+    opacity: 0;
+}
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+</head>
+<body>
+<div id="login_screen">
+    <div id="login_form">
+        <h2>Welcome to BonziWORLD - Mac OS 10.7 Edition</h2>
+        <input type="text" id="login_nickname" placeholder="Nickname" required>
+        <input type="text" id="login_room" placeholder="Room ID" required>
+        <button onclick="login()">Login</button>
+    </div>
+</div>
+
+<div id="desktop">
+    <div id="agents_container"></div>
+    <input type="text" id="chatbar" placeholder="Type your message...">
+    <div id="room_info"></div>
+    <button id="chat_log_button" onclick="toggleChatLog()">Chat Log</button>
+</div>
+
+<script>
+const socket = io('https://bonziworld.org/');
+let agents = {};
+let announcements = [];
+let level = 0;
+let self = {};
+
+const agentImages = [
+    "https://web.archive.org/web/20240419014954if_/https://bonkey.world/img/bonzi/purple.png",
+    "https://web.archive.org/web/20240419014959if_/https://bonkey.world/img/bonzi/peedy.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/clippy.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/genie.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/merlin.png",
+    "https://raw.githubusercontent.com/bonziworld29/BonziWORLD-Revived-Server/main/client/www/img/agents/Robby.png"
+];
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+function login() {
+    self = {
+        name: $("login_nickname").value,
+        room: $("login_room").value,
+        color: ""
+    };
+    socket.emit("login", self);
+}
+
+socket.on("login", logindata => {
+    $("login_screen").style.display = "none";
+    $("desktop").style.display = "block";
+    
+    Object.keys(logindata.users).forEach(userkey => {
+        let user = logindata.users[userkey];
+        createAgent(user);
+    });
+    
+    updateRoomInfo();
+});
+
+function createAgent(user) {
+    let x = Math.floor(Math.random() * (window.innerWidth - 200));
+    let y = Math.floor(Math.random() * (window.innerHeight - 160));
+    
+    let agentDiv = document.createElement('div');
+    agentDiv.id = `agent_${user.guid}`;
+    agentDiv.className = 'agent entering';
+    agentDiv.style.left = `${x}px`;
+    agentDiv.style.top = `${y}px`;
+    
+    let canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 160;
+    agentDiv.appendChild(canvas);
+    
+    let nameTag = document.createElement('div');
+    nameTag.textContent = user.name;
+    nameTag.style.textAlign = 'center';
+    agentDiv.appendChild(nameTag);
+    
+    $("agents_container").appendChild(agentDiv);
+    
+    let stage = new createjs.Stage(canvas);
+    let spriteSheet = new createjs.SpriteSheet({
+        images: [agentImages[Math.floor(Math.random() * agentImages.length)]],
+        frames: {width: 200, height: 160},
+        animations: {
+            idle: 0,
+            enter: [277, 302, "idle", 0.5],
+            leave: [16, 39, 40, 0.5],
+            shrug: [100, 110, "idle", 1]
+        }
+    });
+    
+    let sprite = new createjs.Sprite(spriteSheet, "enter");
+    stage.addChild(sprite);
+    createjs.Ticker.framerate = 30;
+    createjs.Ticker.addEventListener("tick", stage);
+    
+    agents[user.guid] = {
+        div: agentDiv,
+        sprite: sprite,
+        stage: stage,
+        talk: function(text) {
+            let bubble = document.createElement('div');
+            bubble.className = 'speech-bubble';
+            bubble.textContent = text;
+            this.div.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 3000);
+        }
+    };
+    
+    setTimeout(() => {
+        agentDiv.classList.remove('entering');
+        agentDiv.classList.add('entered');
+    }, 50);
+    
+    makeDraggable(agentDiv);
+}
+
+function makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    element.onmousedown = dragMouseDown;
+    element.ontouchstart = dragTouchStart;
+
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+
+    function dragTouchStart(e) {
+        e = e || window.event;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        document.ontouchend = closeDragElement;
+        document.ontouchmove = elementDragTouch;
+    }
+
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+    }
+
+    function elementDragTouch(e) {
+        e = e || window.event;
+        pos1 = pos3 - e.touches[0].clientX;
+        pos2 = pos4 - e.touches[0].clientY;
+        pos3 = e.touches[0].clientX;
+        pos4 = e.touches[0].clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+    }
+}
+
+function updateRoomInfo() {
+    $("room_info").textContent = `Room: ${self.room} | Users: ${Object.keys(agents).length}`;
+}
+
+function talk() {
+    let message = $("chatbar").value;
+    if (message.startsWith("/")) {
+        let [cmd, ...params] = message.slice(1).split(" ");
+        socket.emit("command", {command: cmd, param: params.join(" ")});
+    } else {
+        socket.emit("talk", message);
+    }
+    $("chatbar").value = "";
+}
+
+$("chatbar").addEventListener("keydown", e => {
+    if (e.key === "Enter") talk();
+});
+
+socket.on("talk", data => {
+    if (agents[data.guid]) {
+        agents[data.guid].talk(data.text);
+        speakText(data.text);
+    }
+});
+
+socket.on("join", user => {
+    createAgent(user);
+    updateRoomInfo();
+});
+
+socket.on("leave", guid => {
+    if (agents[guid]) {
+        let agent = agents[guid];
+        agent.sprite.gotoAndPlay("leave");
+        agent.div.classList.add('leaving');
+        setTimeout(() => {
+            agent.div.remove();
+            delete agents[guid];
+            updateRoomInfo();
+        }, 500);
+    }
+});
+
+socket.on("update", user => {
+    if (agents[user.guid]) {
+        agents[user.guid].div.querySelector('div').textContent = user.name;
+    }
+});
+
+socket.on("announce", data => {
+    let win = new msWindow(data.title, data.html);
+    announcements.push(win);
+    if (announcements.length > 3) {
+        announcements[0].close();
+        announcements.shift();
+    }
+});
+
+socket.on("update_self", info => {
+    level = info.level;
+    if (info.roomowner) $("room_owner").style.display = "block";
+});
+
+socket.on("kick", kicker => {
+    alert(`You have been kicked by ${kicker}`);
+    window.location.reload();
+});
+
+function msWindow(title, content, x = 100, y = 100, width = 300, height = 200) {
+    this.element = document.createElement('div');
+    this.element.className = 'mswindow';
+    this.element.style.left = x + 'px';
+    this.element.style.top = y + 'px';
+    this.element.style.width = width + 'px';
+    this.element.style.height = height + 'px';
+    
+    this.titleBar = document.createElement('div');
+    this.titleBar.className = 'mswindow-title';
+    this.titleBar.textContent = title;
+    
+    this.closeButton = document.createElement('span');
+    this.closeButton.className = 'mswindow-close';
+    this.closeButton.textContent = 'X';
+    this.closeButton.onclick = () => this.close();
+    
+    this.content = document.createElement('div');
+    this.content.className = 'mswindow-content';
+    this.content.innerHTML = content;
+    
+    this.titleBar.appendChild(this.closeButton);
+    this.element.appendChild(this.titleBar);
+    this.element.appendChild(this.content);
+    
+    document.body.appendChild(this.element);
+    makeDraggable(this.element);
+    
+    this.close = function() {
+        this.element.remove();
+    };
+}
+
+let chatLogWindow = null;
+
+function toggleChatLog() {
+    if (chatLogWindow) {
+        chatLogWindow.close();
+        chatLogWindow = null;
+    } else {
+        chatLogWindow = new msWindow('Chat Log', '<div id="chat_log"></div>', 10, 10, 300, 400);
+    }
+}
+
+function speakText(text) {
+    let url = `https://www.tetyys.com/SAPI4/SAPI4?text=${encodeURIComponent(text)}&voice=${encodeURIComponent("Sam")}&pitch=150&speed=100`;
+    let audio = new Audio(url);
+    audio.play();
+}
+
+function updateChatLog(message) {
+    if (chatLogWindow) {
+        let chatLog = chatLogWindow.content.querySelector('#chat_log');
+        chatLog.innerHTML += `<p>${message}</p>`;
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+}
+
+socket.on("talk", data => {
+    if (agents[data.guid]) {
+        agents[data.guid].talk(data.text);
+        speakText(data.text);
+        updateChatLog(`${agents[data.guid].div.querySelector('div').textContent}: ${data.text}`);
+    }
+});
+
+</script>
+</body></html>
