@@ -1,0 +1,380 @@
+<html><head><base href="https://bonziworld.org/"><title>ClippyChat</title>
+<link rel="stylesheet" href="https://unpkg.com/98.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+<style>
+body, html {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    font-family: "MS Sans Serif", Arial, sans-serif;
+}
+#chatbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: #c0c0c0;
+    border-top: 2px solid #fff;
+    box-shadow: inset 1px 1px #dfdfdf, 1px 0 #000, 0 1px #000, 1px 1px #000;
+}
+#send_message {
+    width: calc(100% - 80px);
+}
+#send_button {
+    width: 70px;
+}
+.agent {
+    position: absolute;
+    cursor: move;
+}
+.speech-bubble {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 200px;
+    word-wrap: break-word;
+}
+.username-bubble {
+    position: absolute;
+    background: #000080;
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+#room_info {
+    position: fixed;
+    bottom: 50px;
+    right: 10px;
+    background: rgba(255,255,255,0.8);
+    padding: 5px;
+    border: 1px solid #000;
+}
+#room_owner {
+    display: none;
+    color: #008000;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+<div id="login" class="window" style="width: 300px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+    <div class="title-bar">
+        <div class="title-bar-text">ClippyChat Login</div>
+    </div>
+    <div class="window-body">
+        <p>
+            <label for="login_nickname">Nickname:</label>
+            <input id="login_nickname" type="text">
+        </p>
+        <p>
+            <label for="login_room">Room ID:</label>
+            <input id="login_room" type="text">
+        </p>
+        <button id="login_button">Join Chat</button>
+    </div>
+</div>
+
+<div id="chat" style="display:none;">
+    <div id="agents"></div>
+    <div id="chatbar">
+        <input id="send_message" type="text" placeholder="Type your message...">
+        <button id="send_button">Send</button>
+    </div>
+    <div id="room_info">
+        <span id="room_name"></span>
+        <span id="room_owner">Room Owner</span>
+    </div>
+</div>
+
+<script>
+const socket = io('https://bonziworld.org/');
+let self = {};
+let agents = {};
+let announcements = [];
+let level = 0;
+
+function $(id) { return document.getElementById(id); }
+
+function msWindow(title, html, x = 100, y = 100, w = 300, h = 200, callback) {
+    let win = document.createElement('div');
+    win.className = 'window';
+    win.style.position = 'absolute';
+    win.style.left = x + 'px';
+    win.style.top = y + 'px';
+    win.style.width = w + 'px';
+    win.style.height = h + 'px';
+    
+    win.innerHTML = `
+        <div class="title-bar">
+            <div class="title-bar-text">${title}</div>
+            <div class="title-bar-controls">
+                <button aria-label="Close" onclick="this.parentElement.parentElement.parentElement.remove()"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            ${html}
+        </div>
+    `;
+    
+    document.body.appendChild(win);
+    
+    if (callback) callback(win);
+    
+    return win;
+}
+
+function agent(name, guid, x, y, sheet, color, voice) {
+    this.name = name;
+    this.guid = guid;
+    this.x = x;
+    this.y = y;
+    this.sheet = sheet;
+    this.color = color;
+    this.voice = voice;
+    this.id = 'agent_' + guid;
+    
+    let div = document.createElement('div');
+    div.id = this.id;
+    div.className = 'agent';
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+    
+    let canvas = document.createElement('canvas');
+    canvas.width = 124;
+    canvas.height = 93;
+    div.appendChild(canvas);
+    
+    let username = document.createElement('div');
+    username.id = this.id + 'n';
+    username.className = 'username-bubble';
+    username.innerText = name;
+    div.appendChild(username);
+    
+    $('agents').appendChild(div);
+    
+    // Create sprite sheet
+    let spriteSheet = new createjs.SpriteSheet({
+        images: ["https://bonziworld.org/img/agents/clippy.png"],
+        frames: {width: 124, height: 93},
+        animations: {
+            idle: 0,
+            enter: {
+                frames: [410, 411, 412, 413, 414, 415, 416],
+                next: "idle",
+                speed: 0.25
+            },
+            leave: {
+                frames: [0].concat([...Array(48).keys()].map(i => i + 364)),
+                speed: 0.25
+            }
+        }
+    });
+    
+    // Create sprite
+    this.sprite = new createjs.Sprite(spriteSheet, "idle");
+    
+    // Create stage and add sprite to it
+    this.stage = new createjs.Stage(canvas);
+    this.stage.addChild(this.sprite);
+    
+    // Update stage
+    createjs.Ticker.addEventListener("tick", this.stage);
+    
+    this.talk = function(text, say) {
+        let bubble = document.createElement('div');
+        bubble.className = 'speech-bubble';
+        bubble.innerText = text;
+        div.appendChild(bubble);
+        
+        setTimeout(() => bubble.remove(), 5000);
+        
+        let url = "https://www.tetyys.com/SAPI4/SAPI4?text=" + encodeURIComponent(say) + "&voice=" + encodeURIComponent("Sam") + "&pitch=150&speed=100";
+        let audio = new Audio(url);
+        audio.play();
+    }
+    
+    this.change = function(newColor) {
+        this.color = newColor;
+        // You would need to update the sprite sheet here with the new color's image
+    }
+    
+    this.kill = function() {
+        this.sprite.gotoAndPlay("leave");
+        this.sprite.addEventListener("animationend", () => {
+            div.remove();
+        });
+    }
+    
+    this.actqueue = function(queue, index) {
+        if (index >= queue.length) return;
+        let act = queue[index];
+        // Implement act logic here
+        setTimeout(() => this.actqueue(queue, index + 1), act.duration || 1000);
+    }
+    
+    // Make agent draggable
+    let isDragging = false;
+    let dragOffsetX, dragOffsetY;
+    
+    div.addEventListener('mousedown', startDrag);
+    div.addEventListener('touchstart', startDrag);
+    
+    function startDrag(e) {
+        isDragging = true;
+        let clientX = e.clientX || e.touches[0].clientX;
+        let clientY = e.clientY || e.touches[0].clientY;
+        dragOffsetX = clientX - div.offsetLeft;
+        dragOffsetY = clientY - div.offsetTop;
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchend', stopDrag);
+    }
+    
+    function drag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        let clientX = e.clientX || e.touches[0].clientX;
+        let clientY = e.clientY || e.touches[0].clientY;
+        div.style.left = (clientX - dragOffsetX) + 'px';
+        div.style.top = (clientY - dragOffsetY) + 'px';
+    }
+    
+    function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('touchmove', drag);
+    }
+    
+    // Play enter animation
+    this.sprite.gotoAndPlay("enter");
+}
+
+function send() {
+    let tosend = $("send_message").value;
+    if (tosend.startsWith("/")) {
+        let comd = tosend.split(" ")[0].replace("/", '');
+        let param = tosend.includes(" ") ? tosend.substring(tosend.indexOf(" ") + 1, tosend.length) : "";
+        socket.emit("command", {command: comd, param: param});
+    } else {
+        socket.emit("talk", $("send_message").value);
+    }
+    $("send_message").value = "";
+}
+
+$("login_button").addEventListener("click", function() {
+    self = {
+        name: $("login_nickname").value,
+        room: $("login_room").value,
+        color: ""
+    };
+    socket.emit("login", self);
+});
+
+$("send_button").addEventListener("click", send);
+$("send_message").addEventListener("keydown", function(e) {
+    if (e.keyCode === 13) send();
+});
+
+socket.on("login", function(logindata) {
+    $("login").style.display = "none";
+    $("chat").style.display = "block";
+    $("room_name").innerText = "Room: " + self.room;
+    
+    Object.keys(logindata.users).forEach(userkey => {
+        let user = logindata.users[userkey];
+        let x = Math.floor(Math.random() * (window.innerWidth - 124));
+        let y = Math.floor(Math.random() * (window.innerHeight - 93 - 32));
+        agents[userkey] = new agent(user.name, userkey, x, y, null, user.color, user.voice);
+    });
+});
+
+socket.on("join", function(user) {
+    let x = Math.floor(Math.random() * (window.innerWidth - 124));
+    let y = Math.floor(Math.random() * (window.innerHeight - 93 - 32));
+    agents[user.guid] = new agent(user.name, user.guid, x, y, null, user.color, user.voice);
+});
+
+socket.on("leave", function(guid) {
+    agents[guid].kill();
+    delete agents[guid];
+});
+
+socket.on("update", function(user) {
+    let agent = agents[user.guid];
+    if (agent) {
+        $(agent.id + "n").innerHTML = user.name;
+        agent.voice = user.voice;
+        if (user.color != agent.color) {
+            agent.change(user.color);
+        }
+    }
+});
+
+socket.on("talk", function(text) {
+    agents[text.guid].talk(text.text, text.text);
+});
+
+socket.on("actqueue", function(queue) {
+    agents[queue.guid].actqueue(queue.list, 0);
+});
+
+socket.on("update_self", function(info) {
+    level = info.level;
+    if (info.roomowner) $("room_owner").style.display = "block";
+});
+
+socket.on("kick", function(kicker) {
+    msWindow("Kicked", `You have been kicked by ${kicker}`);
+});
+
+socket.on("announce", function(data) {
+    announcements.push(new msWindow(data.title, data.html));
+    if (announcements.length > 3) {
+        announcements[0].remove();
+        announcements.shift();
+    }
+});
+
+// Chat log window
+let chatLogWindow;
+function toggleChatLog() {
+    if (chatLogWindow) {
+        chatLogWindow.remove();
+        chatLogWindow = null;
+    } else {
+        chatLogWindow = msWindow("Chat Log", '<div id="chat_log"></div>', 10, 10, 300, 400);
+    }
+}
+
+// Add chat log button
+let chatLogButton = document.createElement('button');
+chatLogButton.innerText = 'Toggle Chat Log';
+chatLogButton.style.position = 'fixed';
+chatLogButton.style.top = '10px';
+chatLogButton.style.left = '10px';
+chatLogButton.addEventListener('click', toggleChatLog);
+document.body.appendChild(chatLogButton);
+
+function addToChatLog(message) {
+    if (chatLogWindow) {
+        let chatLog = chatLogWindow.querySelector('#chat_log');
+        let entry = document.createElement('div');
+        entry.innerText = message;
+        chatLog.appendChild(entry);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+}
+
+socket.on("talk", function(text) {
+    agents[text.guid].talk(text.text, text.text);
+    addToChatLog(`${agents[text.guid].name}: ${text.text}`);
+});
+
+</script>
+</body></html>
